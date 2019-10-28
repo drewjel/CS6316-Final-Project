@@ -19,7 +19,7 @@ class Dictionary(object):
     
     def __getitem__(self, item):
         if item in self.word2idx:
-            return self.word2idx[item]:
+            return self.word2idx[item]
         else:
             return None
     
@@ -34,7 +34,7 @@ class Corpus(object):
     def __init__(self, pathToData):
         self.dict = Dictionary()
         self.train = self.tokenize(pathToData + "train.txt")
-        self.val = self.tokenize(pathToData + "val.txt")
+        self.val = self.tokenize(pathToData + "valid.txt")
         self.test = self.tokenize(pathToData + "test.txt")
     
     def tokenize(self, filepath):
@@ -45,22 +45,16 @@ class Corpus(object):
             data = f.read().replace('\n', '')
 
         data = data.split('.')
-        tokens = 0
-
-        for sentence in data:
-            sentence = sentence.split() + ['<eos>']
-            tokens += len(sentence)
-            for word in sentence:
-                self.dictionary.add(word)
-        
-        ids = tf.zeros(tokens, tf.int64)
-        index = 0
+        ids = []
         for sentence in data:
             sentence = sentence.split() + ['<eos>']
             for word in sentence:
-                id[index] = self.dictionary.word2idx[word]
-                index += 1
+                self.dict.add(word)
+                ids.append(self.dict.word2idx[word])
         
         return ids
-        
 
+
+pathToData = os.getcwd() + "/data/penn/"
+corpus = Corpus(pathToData)
+print(corpus.train[-5:])
