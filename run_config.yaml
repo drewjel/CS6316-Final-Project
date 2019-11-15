@@ -1,0 +1,6 @@
+params:
+    model:
+        chunk_size_factor: 16
+        hidden_size: 1024
+        nlayers: 3
+        batch_size: 32
