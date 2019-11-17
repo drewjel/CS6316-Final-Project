@@ -8,7 +8,7 @@ from collections import defaultdict
 import numpy as np
 import tensorflow as tf
 import nltk
-from nltk.corpus import ptb
+from nltk.corpus import treebank as ptb
 
 word_tags = ['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD', 'NN', 'NNS', 'NNP', 'NNPS', 'PDT',
              'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'SYM', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ',
@@ -25,11 +25,11 @@ valid_file_ids = []
 test_file_ids = []
 rest_file_ids = []
 for id in file_ids:
-    if 'WSJ/00/WSJ_0000.MRG' <= id <= 'WSJ/24/WSJ_2499.MRG':
+    if 'wsj_0001.mrg' <= id <= 'wsj_0199.MRG':
         train_file_ids.append(id)
-    if 'WSJ/22/WSJ_2200.MRG' <= id <= 'WSJ/22/WSJ_2299.MRG':
+    if 'wsj_0180.mrg' <= id <= 'wsj_0199.mrg':
         valid_file_ids.append(id)
-    if 'WSJ/23/WSJ_2300.MRG' <= id <= 'WSJ/23/WSJ_2399.MRG':
+    if 'wsj_0160.mrg' <= id <= 'wsj_0179.mrg':
         test_file_ids.append(id)
 
 class Dictionary(object):
@@ -63,11 +63,8 @@ class Dictionary(object):
                 self.idx2word.append(k)
                 self.word2idx[k] = len(self.idx2word) - 1
 
-        print('Number of words:', len(self.idx2word))
-        return len(self.idx2word)
-
 class Corpus(object):
-    def __init__(self, path):
+    def __init__(self):
         self.dictionary = Dictionary()
         self.add_words(train_file_ids)
         self.dictionary.rebuild_by_freq()
@@ -77,6 +74,7 @@ class Corpus(object):
         self.test, self.test_sens, self.test_trees, self.test_nltktrees = self.tokenize(test_file_ids)
         self.rest, self.rest_sens, self.rest_trees, self.rest_nltktrees = self.tokenize(rest_file_ids)
     
+    @staticmethod
     def _filter_words(tree):
         words = []
         for w, tag in tree.pos():
@@ -93,26 +91,50 @@ class Corpus(object):
                 words = Corpus._filter_words(sen_tree)
                 words = ['<eos>'] + words + ['<eos>']
                 for word in words:
-                    self.dictionary.add_word(word)
+                    self.dictionary.add(word)
     
     def tokenize(self, file_ids):
         def tree2list(tree):
             if not isinstance(tree, nltk.Tree):
                 return []
-            
-            if tree.label() in word_tags:
+            elif tree.label() in word_tags:
                 w = tree.leaves()[0].lower()
                 w = re.sub('[0-9]+', 'N', w)
                 return w
-            else:
-                root = []
-                for child in tree:
-                    c = tree2list(child)
-                    if c != []:
-                        root.append(c)
-                if len(root) > 1:
-                    return root
-                elif len(root) == 1:
-                    return root[0]
+
+            root = []
+            for child in tree:
+                c = tree2list(child)
+                if c is not None:
+                    root.append(c)
+
+            if len(root) > 1:
+                return root
+            elif len(root) == 1:
+                return root[0]
         
-        # TODO
+        sens_idx = []
+        sens = []
+        trees = []
+        nltk_trees = []
+
+        for id in file_ids:
+            sentences = ptb.parsed_sents(id)
+            for sen_tree in sentences:
+                words = self._filter_words(sen_tree)
+                words = ['<eos>'] + words + ['<eos>']
+
+                sens.append(words)
+                idx = []
+
+                for word in words:
+                    idx.append(self.dictionary[word])
+
+                sens_idx.append(idx)
+                trees.append(tree2list(sen_tree))
+                nltk_trees.append(sen_tree)
+
+        return sens_idx, sens, trees, nltk_trees
+
+corp = Corpus()
+print(corp.train_nltktrees[0].pos())
