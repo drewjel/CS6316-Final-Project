@@ -8,6 +8,6 @@ model:
   eval_batch_size: 10
   test_batch_size: 1
   seq_len: 70
-  epochs: 1000
-  lr: 1e-5
+  epochs: 100000
+  lr: 1e-3
 corpus_loc: 'CS6316-Final-Project/data/penn/'

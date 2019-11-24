@@ -75,18 +75,18 @@ if __name__ == '__main__':
     
     batch_no = 0%corpus_train.shape[0]
 
-    batch = get_batch(corpus_train, batch_no, seq_len)
+    batch = get_batch(corpus_train, batch_no, train_batch_size)
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         with tf.device("/GPU:0"):
-            model = OrderedNeuronModel(chunk_size_factor, nlayers, vocab_size, input_size, hidden_size, lr)
+            model = OrderedNeuronModel(chunk_size_factor, nlayers, vocab_size, input_size, hidden_size, lr, train_batch_size)
             init = tf.initialize_all_variables()
             sess.run(init)
-        losses = np.zeros([100])
+        losses = np.zeros([200])
         for i in range(epochs):
 
             batch_no = i%corpus_train.shape[0]
 
-            batch = get_batch(corpus_train, batch_no, seq_len)
+            batch = get_batch(corpus_train, batch_no, train_batch_size)
 
             for j in batch[1]:
                 if isinstance(j, str):
@@ -96,10 +96,14 @@ if __name__ == '__main__':
                 if isinstance(j, str):
                     print('wtf')
 
-            print('Running epoch ' + str(i))
+            #print('Running epoch ' + str(i))
             
-            _, losses[i%100] = sess.run([model.step, model.loss], feed_dict={model.cell.input:batch[0], model.cell.seq_len:seq_len, model.targets:batch[1].reshape((-1, 1))})
+            _, losses[i%200] = sess.run([model.step, model.loss], feed_dict={model.cell.input:batch[0], model.cell.seq_len:seq_len, model.targets:batch[1].reshape((-1, 1))})
 
-            print(losses[i%100])
+            #print(losses[i%100])
+
+            if i>= 200 and i%200 == 0:
+                print('AVERAGE')
+                print(np.average(losses))
 
             #_ = sess.run([model.step], feed_dict={model.cell.input:batch[0], model.cell.seq_len:seq_len, model.targets:batch[1].reshape((-1, 1))})

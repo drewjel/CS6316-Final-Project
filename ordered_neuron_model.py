@@ -29,9 +29,19 @@ class OrderedNeuronModel(object):
         self.optimizer = tf.train.AdamOptimizer(learning_rate=lr )#,beta1=0)
     
         hidden_states, cell_states = self.cell.forward_propagate()
-        
-        self.loss = self.loss_criterion.calc_loss(self.cell.decoder_kernel, self.cell.decoder_bias, hidden_states, self.targets)
+        hidden_states = tf.concat([tf.reshape(hs, (batch_size, 1, -1)) for hs in hidden_states], axis=1)
 
+        self.decoded = self.cell.decoder(hidden_states)#tf.keras.backend.dot(hidden_states, self.cell.decoder_kernel) + self.cell.decoder_bias
+
+        self.decoded = tf.reshape(self.decoded, (6400, -1))
+
+        #self.logits = tf.nn.softmax(self.decoded, axis=-1)
+
+        self._targets = tf.reshape(self.targets, (6400, 1))
+        self._targets = tf.one_hot(self.targets, depth=vocab_size)
+
+        self.loss = tf.nn.softmax_cross_entropy_with_logits(labels=self._targets, logits=self.decoded)#self.loss_criterion.calc_loss(self.cell.decoder_kernel, self.cell.decoder_bias, hidden_states, self.targets)
+        self.loss = tf.reduce_mean(self.loss)
         self.step = self.optimizer.minimize(self.loss)
     
     #def loss(self):
@@ -60,9 +70,9 @@ class OrderedNeuronCell(object):
         
         #self.decoder = tf.keras.layers.Dense(input_size, vocab_size)
         
-        self.decoder_kernel = tf.get_variable(name='decoder_kernel', shape=[input_size, vocab_size], dtype=tf.float32, initializer=tf.glorot_normal_initializer(), trainable=True)
-        self.decoder_bias = tf.get_variable(name='decoder_bias', shape=[vocab_size], dtype=tf.float32, initializer=tf.glorot_normal_initializer(), trainable=True)
-        
+        #self.decoder_kernel = tf.get_variable(name='decoder_kernel', shape=[input_size, vocab_size], dtype=tf.float32, initializer=tf.glorot_normal_initializer(), trainable=True)
+        #self.decoder_bias = tf.get_variable(name='decoder_bias', shape=[vocab_size], dtype=tf.float32, initializer=tf.glorot_normal_initializer(), trainable=True)
+        self.decoder = tf.keras.layers.Dense(units = vocab_size, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.glorot_normal_initializer())
         
     def forward_propagate(self):
         
