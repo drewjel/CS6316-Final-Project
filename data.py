@@ -38,23 +38,32 @@ class Corpus(object):
         self.test = self.tokenize(pathToData + "test.txt")
     
     def tokenize(self, filepath):
+        
+        print(filepath)
         if not os.path.exists(filepath):
             raise FileNotFoundError
-        
-        with open(filepath, 'r') as f:
-            data = f.read().replace('\n', '')
 
-        data = data.split('.')
-        ids = []
-        for sentence in data:
-            sentence = sentence.split() + ['<eos>']
-            for word in sentence:
-                self.dict.add(word)
-                ids.append(self.dict.word2idx[word])
-        
+        with open(filepath, 'r') as f:
+            tokens = 0
+            for line in f:
+                words = line.split() + ['<eos>']
+                tokens += len(words)
+                for word in words:
+                    self.dict.add(word)
+
+        # Tokenize file content
+        with open(filepath, 'r') as f:
+            ids = np.zeros((tokens), dtype=np.int)
+            token = 0
+            for line in f:
+                words = line.split() + ['<eos>']
+                for word in words:
+                    ids[token] = self.dict.word2idx[word]
+                    token += 1
+
         return ids
 
 
-pathToData = os.getcwd() + "/data/penn/"
-corpus = Corpus(pathToData)
-print(corpus.train[-5:])
+#pathToData = os.getcwd() + "/data/penn/"
+#corpus = Corpus(pathToData)
+#print(corpus.train[-5:])
