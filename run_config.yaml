@@ -1,7 +1,13 @@
-params:
-    model:
-        chunk_size_factor: 16
-        hidden_size: 1024
-        nlayers: 3
-        batch_size: 32
-        input_size: 400
+model:
+  chunk_size_factor: 16
+  hidden_size: 512
+  nlayers: 3
+  batch_size: 32
+  input_size: 128
+  train_batch_size: 80
+  eval_batch_size: 10
+  test_batch_size: 1
+  seq_len: 70
+  epochs: 100000
+  lr: 1e-3
+corpus_loc: 'CS6316-Final-Project/data/penn/'
