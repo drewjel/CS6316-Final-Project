@@ -64,10 +64,13 @@ class Dictionary(object):
                 self.word2idx[k] = len(self.idx2word) - 1
 
 class Corpus(object):
-    def __init__(self):
+    def __init__(self, pathToData):
+        dict_file_name = os.path.join(pathToData, 'dict.pkl')
         self.dictionary = Dictionary()
         self.add_words(train_file_ids)
         self.dictionary.rebuild_by_freq()
+
+        pickle.dump(self.dictionary, open(dict_file_name, 'wb'))
 
         self.train, self.train_sens, self.train_trees, self.train_nltktrees = self.tokenize(train_file_ids)
         self.valid, self.valid_sens, self.valid_trees, self.valid_nltktress = self.tokenize(valid_file_ids)
@@ -136,5 +139,5 @@ class Corpus(object):
 
         return sens_idx, sens, trees, nltk_trees
 
-corp = Corpus()
+corp = Corpus(os.getcwd())
 print(corp.train_nltktrees[0].pos())
