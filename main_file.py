@@ -84,9 +84,13 @@ if __name__ == '__main__':
         losses = np.zeros([200])
         for i in range(epochs):
 
-            batch_no = i%corpus_train.shape[0]
+            batch_no = i%int(corpus_train.shape[0]/train_batch_size)
+            if batch_no >0: batch_no = batch_no - 1
 
             batch = get_batch(corpus_train, batch_no, train_batch_size)
+
+            if batch[0].reshape((-1)).shape[0] < 6400:
+                continue
 
             for j in batch[1]:
                 if isinstance(j, str):

@@ -109,16 +109,6 @@ class OrderedNeuronLayer(object):
         self.input_ize = input_size
         self.hidden_size = hidden_size
         
-        self.input_weights = tf.keras.layers.Dense(C + hidden_size * 4 + C, 
-                                                   use_bias=True, 
-                                                   kernel_initializer='glorot_normal',
-                                                   bias_initializer='glorot_normal')
-    
-        self.hidden_weights = tf.keras.layers.Dense(C + hidden_size * 4 + C, 
-                                                   use_bias=True, 
-                                                   kernel_initializer='glorot_normal',
-                                                   bias_initializer='glorot_normal')
-        
         self.master_input_gate_weights_input = tf.keras.layers.Dense(C, 
                                                    use_bias=True, 
                                                    kernel_initializer='glorot_normal',
