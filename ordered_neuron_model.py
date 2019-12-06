@@ -8,11 +8,13 @@ from collections import defaultdict
 import numpy as np
 from typing import List
 
+seq_len = 80
+
 class OrderedNeuronModel(object):
     def __init__(self, C, nlayers, vocab_size, input_size, hidden_size, lr, batch_size=None):
         self.cell = OrderedNeuronCell(C, nlayers, vocab_size, input_size, hidden_size, batch_size)
 
-        
+        '''
         splits = []
         if vocab_size > 500000:
             # One Billion
@@ -24,20 +26,22 @@ class OrderedNeuronModel(object):
             splits = [2800, 20000, 76000]
         
         self.loss_criterion = SplitCrossEntropyLoss(hidden_size, splits)
+        '''
+
 
         self.targets = tf.placeholder(dtype=tf.int32, shape=(None, 1))
         self.optimizer = tf.train.AdamOptimizer(learning_rate=lr )#,beta1=0)
     
-        hidden_states, cell_states = self.cell.forward_propagate()
+        hidden_states, cell_states, _, _ = self.cell.forward_propagate(80)
         hidden_states = tf.concat([tf.reshape(hs, (batch_size, 1, -1)) for hs in hidden_states], axis=1)
 
         self.decoded = self.cell.decoder(hidden_states)#tf.keras.backend.dot(hidden_states, self.cell.decoder_kernel) + self.cell.decoder_bias
 
-        self.decoded = tf.reshape(self.decoded, (6400, -1))
+        self.decoded = tf.reshape(self.decoded, (-1, vocab_size))
 
         #self.logits = tf.nn.softmax(self.decoded, axis=-1)
 
-        self._targets = tf.reshape(self.targets, (6400, 1))
+        self._targets = tf.reshape(self.targets, (batch_size*seq_len, 1))
         self._targets = tf.one_hot(self.targets, depth=vocab_size)
 
         self.loss = tf.nn.softmax_cross_entropy_with_logits(labels=self._targets, logits=self.decoded)#self.loss_criterion.calc_loss(self.cell.decoder_kernel, self.cell.decoder_bias, hidden_states, self.targets)
@@ -57,8 +61,8 @@ class OrderedNeuronCell(object):
     def __init__(self, C, nlayers, vocab_size, input_size, hidden_size, batch_size):
         self.hidden_size = hidden_size
         self.seq_len = tf.placeholder(dtype=tf.int32, shape=None)
-        
-        self.input = tf.placeholder(dtype=tf.float32, shape=[batch_size, 80])
+         
+        self.input = tf.placeholder(dtype=tf.float32, shape=[batch_size, None])
         
         self.hidden = tf.zeros(shape=[1, 1, self.hidden_size])
         
@@ -74,12 +78,16 @@ class OrderedNeuronCell(object):
         #self.decoder_bias = tf.get_variable(name='decoder_bias', shape=[vocab_size], dtype=tf.float32, initializer=tf.glorot_normal_initializer(), trainable=True)
         self.decoder = tf.keras.layers.Dense(units = vocab_size, kernel_initializer=tf.glorot_normal_initializer(), bias_initializer=tf.glorot_normal_initializer())
         
-    def forward_propagate(self):
+    def forward_propagate(self, seq_len):
         
         self.input_embedding = self.embedding(self.input)
         
         self.cell_states = []
         self.hidden_states = []
+
+        self.distance_forget = []
+        self.distance_input = []
+
         for layer in self.layers:
             self.first_cell_state = tf.stop_gradient(tf.zeros([1, layer.hidden_size], dtype=tf.float32))
             self.first_hidden_state = tf.stop_gradient(tf.zeros([1, layer.hidden_size], dtype=tf.float32))
@@ -87,12 +95,17 @@ class OrderedNeuronCell(object):
             self.last_cell_state = self.first_cell_state
             self.last_hidden_state = self.first_hidden_state
 
+            layer_dist_f = []
+            layer_dist_i = []
 
-            for i in range(80):
+            for i in range(seq_len):
                 self.input_i = tf.gather(self.input_embedding, i, axis=1) \
                                 if len(self.hidden_states) <= i else self.hidden_states[i]
                 
-                self.last_cell_state, self.last_hidden_state = layer.predict(self.input_i, self.last_cell_state, self.last_hidden_state)
+                self.last_cell_state, self.last_hidden_state, distance_forget, distance_input = layer.predict(self.input_i, self.last_cell_state, self.last_hidden_state)
+
+                layer_dist_f.append(distance_forget)
+                layer_dist_i.append(distance_input)
 
                 if len(self.cell_states) <= i:
                     self.cell_states.append(self.last_cell_state)
@@ -100,14 +113,20 @@ class OrderedNeuronCell(object):
                 else:
                     self.cell_states[i] = self.last_cell_state
                     self.hidden_states[i] = self.last_hidden_state
+
+            self.distance_forget.append(tf.stack(layer_dist_f))
+            self.distance_input.append(tf.stack(layer_dist_i))
+
+        self.distance_forget = tf.stack(self.distance_forget)
+        self.distance_input = tf.stack(self.distance_input)
         
-        return self.hidden_states, self.cell_states
+        return self.hidden_states, self.cell_states, self.distance_forget, self.distance_input
 
 class OrderedNeuronLayer(object):
     def __init__(self, C, input_size, hidden_size):
         self.C = C
         self.input_ize = input_size
-        self.hidden_size = hidden_size
+        self.hidden_size = hidden_size 
         
         self.master_input_gate_weights_input = tf.keras.layers.Dense(C, 
                                                    use_bias=True, 
@@ -186,8 +205,16 @@ class OrderedNeuronLayer(object):
         self.input_gate = self.input_gate_pre * tf.tile(self.w, [1, int(self.hidden_size/self.C)]) + tf.tile(self.master_input - self.w, [1, int(self.hidden_size/self.C)])
         self.cell_state = self.forget_gate * cell_state + self.input_gate * self.cell_state_pre
         self.hidden_state = self.output_gate * tf.tanh(self.cell_state)
+
+        #update - to build the grammar tree
         
-        return self.cell_state, self.hidden_state
+        #distance_cforget = 1. - cforgetgate.sum(dim=-1) / self.n_chunk
+        #distance_cin = cingate.sum(dim=-1) / self.n_chunk
+
+        distance_forget = 1 - tf.reduce_sum(self.master_forget, axis=-1) / self.C
+        distance_input = tf.reduce_sum(self.master_input, axis=-1) / self.C
+
+        return self.cell_state, self.hidden_state, distance_forget, distance_input
         
         #^ft = ft ◦ ωt + ( ˜ft − ωt) = ˜ft ◦ (ft ◦ ˜it + 1 −˜it) (12)
         #ˆit = it ◦ ωt + (˜it − ωt) = ˜it ◦ (it ◦˜ft + 1 − ˜ft) (13)

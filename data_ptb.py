@@ -66,11 +66,11 @@ class Dictionary(object):
 class Corpus(object):
     def __init__(self, pathToData):
         dict_file_name = os.path.join(pathToData, 'dict.pkl')
-        self.dictionary = Dictionary()
+        self.dict = Dictionary()
         self.add_words(train_file_ids)
-        self.dictionary.rebuild_by_freq()
+        self.dict.rebuild_by_freq()
 
-        pickle.dump(self.dictionary, open(dict_file_name, 'wb'))
+        pickle.dump(self.dict, open(dict_file_name, 'wb'))
 
         self.train, self.train_sens, self.train_trees, self.train_nltktrees = self.tokenize(train_file_ids)
         self.valid, self.valid_sens, self.valid_trees, self.valid_nltktress = self.tokenize(valid_file_ids)
@@ -94,7 +94,7 @@ class Corpus(object):
                 words = Corpus._filter_words(sen_tree)
                 words = ['<eos>'] + words + ['<eos>']
                 for word in words:
-                    self.dictionary.add(word)
+                    self.dict.add(word)
     
     def tokenize(self, file_ids):
         def tree2list(tree):
@@ -131,7 +131,7 @@ class Corpus(object):
                 idx = []
 
                 for word in words:
-                    idx.append(self.dictionary[word])
+                    idx.append(self.dict[word])
 
                 sens_idx.append(idx)
                 trees.append(tree2list(sen_tree))
